@@ -68,3 +68,4 @@ C:\Users\MSI-1\Downloads\UniFlash2\UniFlash\obj\Debug\net8.0-windows\refint\UniF
 C:\Users\MSI-1\Downloads\UniFlash2\UniFlash\obj\Debug\net8.0-windows\UniFlash.pdb
 C:\Users\MSI-1\Downloads\UniFlash2\UniFlash\obj\Debug\net8.0-windows\UniFlash.genruntimeconfig.cache
 C:\Users\MSI-1\Downloads\UniFlash2\UniFlash\obj\Debug\net8.0-windows\ref\UniFlash.dll
+C:\Users\MSI-1\Downloads\UniFlash2\UniFlash\obj\Debug\net8.0-windows\UniFlash.sourcelink.json

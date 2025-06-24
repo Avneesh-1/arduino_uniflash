@@ -46,8 +46,6 @@ void setup() {
   analogReadResolution(12); // 12-bit resolution (0-4095)
   
   // Initialize random seed using ESP32's unique chip ID
-
-    // Initialize random seed using ESP32's unique chip ID
   randomSeedValue = (int)(ESP.getEfuseMac() >> 32) % 1000;
   randomSeed(randomSeedValue);
   
@@ -212,4 +210,4 @@ float readRealTemperature() {
  * Uncomment the line below and comment out the Serial.printf line in loop()
  * to send data in CSV format instead
  */
-// Serial.printf("%.2f,%.1f,%.1f\n", voltage, tdsValue, temperature);
+// Serial.printf("%.2f,%.1f,%.1f\n", voltage, tdsValue, temperature); 

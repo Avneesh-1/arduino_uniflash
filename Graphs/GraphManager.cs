@@ -49,6 +49,9 @@ namespace UniFlash.Graphs
         {
             try
             {
+                // Debug: Log the incoming data
+                System.Diagnostics.Debug.WriteLine($"Parsing data: '{data.Trim()}'");
+                
                 // Try parsing as CSV first
                 if (data.Contains(","))
                 {
@@ -67,6 +70,7 @@ namespace UniFlash.Graphs
                         tdsValues.Add(tdsVal);
                         tempValues.Add(tempVal);
 
+                        System.Diagnostics.Debug.WriteLine($"CSV parsed: V={v}, TDS={tdsVal}, Temp={tempVal}");
                         updateUI();
                         return;
                     }
@@ -79,18 +83,18 @@ namespace UniFlash.Graphs
                 {
                     if (parts[i].Contains("$Voltage$"))
                     {
-                        if (i + 2 < parts.Length)
-                            voltage = parts[i + 2].Replace("V", "").Trim();
+                        if (i + 1 < parts.Length)
+                            voltage = parts[i + 1].Replace("V", "").Trim();
                     }
                     else if (parts[i].Contains("$TDS$"))
                     {
-                        if (i + 2 < parts.Length)
-                            tds = parts[i + 2].Trim();
+                        if (i + 1 < parts.Length)
+                            tds = parts[i + 1].Trim();
                     }
                     else if (parts[i].Contains("$Temp$"))
                     {
-                        if (i + 2 < parts.Length)
-                            temp = parts[i + 2].Trim();
+                        if (i + 1 < parts.Length)
+                            temp = parts[i + 1].Trim();
                     }
                 }
 
@@ -99,14 +103,26 @@ namespace UniFlash.Graphs
                 double.TryParse(tds, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out tdsVal2);
                 double.TryParse(temp, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out tempVal2);
 
-                if (startTime == null) startTime = DateTime.Now;
-                double t2 = (DateTime.Now - startTime.Value).TotalSeconds;
-                timelapses.Add(t2);
-                voltages.Add(v2);
-                tdsValues.Add(tdsVal2);
-                tempValues.Add(tempVal2);
+                // Debug: Log parsed values
+                System.Diagnostics.Debug.WriteLine($"Marker parsed: V='{voltage}'->{v2}, TDS='{tds}'->{tdsVal2}, Temp='{temp}'->{tempVal2}");
 
-                updateUI();
+                // Only add data if we successfully parsed at least one value
+                if (!double.IsNaN(v2) || !double.IsNaN(tdsVal2) || !double.IsNaN(tempVal2))
+                {
+                    if (startTime == null) startTime = DateTime.Now;
+                    double t2 = (DateTime.Now - startTime.Value).TotalSeconds;
+                    timelapses.Add(t2);
+                    voltages.Add(v2);
+                    tdsValues.Add(tdsVal2);
+                    tempValues.Add(tempVal2);
+
+                    System.Diagnostics.Debug.WriteLine($"Data added: Time={t2}, V={v2}, TDS={tdsVal2}, Temp={tempVal2}");
+                    updateUI();
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("No valid data parsed from input");
+                }
             }
             catch (Exception ex)
             {

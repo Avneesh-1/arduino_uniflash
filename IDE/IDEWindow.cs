@@ -112,19 +112,6 @@ namespace UniFlash.IDE
             {"#include <driver/rtc_wake.h>", "driver/rtc_wake"},
             {"#include <driver/rtc_init.h>", "driver/rtc_init"},
             {"#include <driver/rtc_common.h>", "driver/rtc_common"},
-            {"#include <driver/rtc.h>", "driver/rtc"},
-            {"#include <driver/rtc_io.h>", "driver/rtc_io"},
-            {"#include <driver/rtc_cntl.h>", "driver/rtc_cntl"},
-            {"#include <driver/rtc_wdt.h>", "driver/rtc_wdt"},
-            {"#include <driver/rtc_temp.h>", "driver/rtc_temp"},
-            {"#include <driver/rtc_mem.h>", "driver/rtc_mem"},
-            {"#include <driver/rtc_clk.h>", "driver/rtc_clk"},
-            {"#include <driver/rtc_periph.h>", "driver/rtc_periph"},
-            {"#include <driver/rtc_pm.h>", "driver/rtc_pm"},
-            {"#include <driver/rtc_sleep.h>", "driver/rtc_sleep"},
-            {"#include <driver/rtc_wake.h>", "driver/rtc_wake"},
-            {"#include <driver/rtc_init.h>", "driver/rtc_init"},
-            {"#include <driver/rtc_common.h>", "driver/rtc_common"},
             {"#include <driver/rtc.h>", "driver/rtc"}
         };
 
@@ -872,6 +859,27 @@ namespace UniFlash.IDE
             
             try
             {
+                // For ESP32 boards, ensure the board manager URL is added
+                if (fqbn.StartsWith("esp32:"))
+                {
+                    AppendColoredText(outputBox, "Ensuring ESP32 board manager URL is configured...\n", Color.Cyan);
+                    var configManager = new ArduinoCliConfigManager();
+                    var currentUrls = configManager.GetBoardsManagerUrls();
+                    
+                    if (!currentUrls.Contains("https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"))
+                    {
+                        var newUrls = currentUrls.ToList();
+                        newUrls.Add("https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json");
+                        configManager.SetBoardsManagerUrls(newUrls.ToArray());
+                        configManager.Save();
+                        AppendColoredText(outputBox, "ESP32 board manager URL added to configuration.\n", Color.Green);
+                    }
+                    else
+                    {
+                        AppendColoredText(outputBox, "ESP32 board manager URL already configured.\n", Color.Green);
+                    }
+                }
+
                 var result = await RunCliCommand($"core list");
                 if (!result.Contains(fqbn.Split(':')[0]))
                 {
