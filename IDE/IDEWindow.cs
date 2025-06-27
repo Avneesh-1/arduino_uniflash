@@ -37,6 +37,10 @@ namespace UniFlash.IDE
         private ComboBox programmerComboBox;
         private Label programmerLabel;
         private string selectedProgrammer = "SerialUPDI (115200 baud)";
+        private SplitContainer mainSplitContainer;
+        private bool verboseCompile = false;
+        private bool verboseUpload = false;
+        private Panel editorPanel;
 
         private static readonly Dictionary<string, string> HeaderToLibraryMap = new()
         {
@@ -117,12 +121,11 @@ namespace UniFlash.IDE
 
         public IDEWindow(string preferredDevice = null)
         {
-            InitializeComponent();
-            InitializeMainLayout();
             InitializeMenu();
-            InitializeToolbar();
-            InitializeTabControl();
+            InitializeMainLayout();
+            InitializeEditorPanel();
             InitializeBottomPanel();
+            InitializeComponent();
 
             // Initialize managers after outputBox is created
             libraryManager = new ArduinoLibraryManager(outputBox);
@@ -200,23 +203,22 @@ namespace UniFlash.IDE
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1200, 800);
-            this.Name = "IDEWindow";
             this.Text = "UniFlash IDE";
             this.ResumeLayout(false);
+            this.PerformLayout();
         }
 
         private void InitializeMainLayout()
         {
-            mainLayout = new TableLayoutPanel
+            mainSplitContainer = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 2,
-                BackColor = Color.FromArgb(30, 30, 30)
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 400,
+                BackColor = Color.FromArgb(30, 30, 30),
+                BorderStyle = BorderStyle.FixedSingle
             };
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            this.Controls.Add(mainLayout);
+            this.Controls.Add(mainSplitContainer);
         }
 
         private void InitializeMenu()
@@ -241,151 +243,65 @@ namespace UniFlash.IDE
             toolsMenu.DropDownItems.Add("-");
             toolsMenu.DropDownItems.Add("Debug Board Detection", null, (s, e) => DebugBoardDetection(s, e));
 
+            // Add verbose output submenu
+            var verboseMenu = new ToolStripMenuItem("Show verbose output during");
+            var verboseCompileItem = new ToolStripMenuItem("compile") { CheckOnClick = true };
+            var verboseUploadItem = new ToolStripMenuItem("upload") { CheckOnClick = true };
+            verboseCompileItem.CheckedChanged += (s, e) => verboseCompile = verboseCompileItem.Checked;
+            verboseUploadItem.CheckedChanged += (s, e) => verboseUpload = verboseUploadItem.Checked;
+            verboseMenu.DropDownItems.Add(verboseCompileItem);
+            verboseMenu.DropDownItems.Add(verboseUploadItem);
+            toolsMenu.DropDownItems.Add("-");
+            toolsMenu.DropDownItems.Add(verboseMenu);
+
             menuStrip.Items.Add(fileMenu);
             menuStrip.Items.Add(toolsMenu);
             this.Controls.Add(menuStrip);
             this.MainMenuStrip = menuStrip;
         }
 
-        private void InitializeToolbar()
+        private void InitializeEditorPanel()
         {
+            if (mainSplitContainer == null)
+                throw new InvalidOperationException("mainSplitContainer is null. Call InitializeMainLayout() first.");
+            if (editorPanel == null)
+            {
+                editorPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+                mainSplitContainer.Panel1.Controls.Add(editorPanel);
+            }
+            editorPanel.Controls.Clear();
+
+            // Toolbar
             var toolbarPanel = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                Height = 50,
                 BackColor = Color.FromArgb(40, 40, 40),
                 Padding = new Padding(10),
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false
             };
-
-            var portLabel = new Label
-            {
-                Text = "Port:",
-                ForeColor = Color.White,
-                AutoSize = true,
-                Margin = new Padding(0, 8, 5, 0)
-            };
-
-            portComboBox = new ComboBox
-            {
-                Width = 100,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = Color.FromArgb(50, 50, 50),
-                ForeColor = Color.White,
-                Margin = new Padding(0, 5, 10, 0)
-            };
-
-            var deviceLabel = new Label
-            {
-                Text = "Device:",
-                ForeColor = Color.White,
-                AutoSize = true,
-                Margin = new Padding(0, 8, 5, 0)
-            };
-
-            deviceComboBox = new ComboBox
-            {
-                Width = 150,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = Color.FromArgb(50, 50, 50),
-                ForeColor = Color.White,
-                Margin = new Padding(0, 5, 10, 0)
-            };
-
-            baudLabel = new Label
-            {
-                Text = "Baud:",
-                ForeColor = Color.White,
-                AutoSize = true,
-                Margin = new Padding(0, 8, 5, 0)
-            };
-
-            baudComboBox = new ComboBox
-            {
-                Width = 100,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = Color.FromArgb(50, 50, 50),
-                ForeColor = Color.White,
-                Margin = new Padding(0, 5, 10, 0)
-            };
+            var portLabel = new Label { Text = "Port:", ForeColor = Color.White, AutoSize = true, Margin = new Padding(0, 8, 5, 0) };
+            portComboBox = new ComboBox { Width = 100, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(50, 50, 50), ForeColor = Color.White, Margin = new Padding(0, 5, 10, 0) };
+            var deviceLabel = new Label { Text = "Device:", ForeColor = Color.White, AutoSize = true, Margin = new Padding(0, 8, 5, 0) };
+            deviceComboBox = new ComboBox { Width = 150, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(50, 50, 50), ForeColor = Color.White, Margin = new Padding(0, 5, 10, 0) };
+            baudLabel = new Label { Text = "Baud:", ForeColor = Color.White, AutoSize = true, Margin = new Padding(0, 8, 5, 0) };
+            baudComboBox = new ComboBox { Width = 100, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(50, 50, 50), ForeColor = Color.White, Margin = new Padding(0, 5, 10, 0) };
             baudComboBox.Items.AddRange(new object[] { 300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200 });
             baudComboBox.SelectedItem = 9600;
-
-            programmerLabel = new Label
-            {
-                Text = "Programmer:",
-                ForeColor = Color.White,
-                AutoSize = true,
-                Margin = new Padding(0, 8, 5, 0),
-                Visible = false
-            };
-
-            programmerComboBox = new ComboBox
-            {
-                Width = 220,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = Color.FromArgb(50, 50, 50),
-                ForeColor = Color.White,
-                Margin = new Padding(0, 5, 10, 0),
-                Visible = false
-            };
-            programmerComboBox.Items.AddRange(new string[] {
-                "Atmel-ICE UPDI",
-                "Curiosity Nano",
-                "JTAG2UPDI",
-                "JTAGICE3 UPDI",
-                "microUPDI/Uno Wifi",
-                "MPLAB SNAP UPDI",
-                "PICkit4 UPDI",
-                "SerialUPDI (115200 baud)",
-                "SerialUPDI (230400 baud)",
-                "SerialUPDI (460800 baud)",
-                "SerialUPDI (57600 baud)",
-                "Xplained Pro"
-            });
+            programmerLabel = new Label { Text = "Programmer:", ForeColor = Color.White, AutoSize = true, Margin = new Padding(0, 8, 5, 0), Visible = false };
+            programmerComboBox = new ComboBox { Width = 220, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(50, 50, 50), ForeColor = Color.White, Margin = new Padding(0, 5, 10, 0), Visible = false };
+            programmerComboBox.Items.AddRange(new string[] { "Atmel-ICE UPDI", "Curiosity Nano", "JTAG2UPDI", "JTAGICE3 UPDI", "microUPDI/Uno Wifi", "MPLAB SNAP UPDI", "PICkit4 UPDI", "SerialUPDI (115200 baud)", "SerialUPDI (230400 baud)", "SerialUPDI (460800 baud)", "SerialUPDI (57600 baud)", "Xplained Pro" });
             programmerComboBox.SelectedIndex = 7;
-            programmerComboBox.SelectedIndexChanged += (s, e) =>
-            {
-                selectedProgrammer = programmerComboBox.SelectedItem?.ToString() ?? "SerialUPDI (115200 baud)";
-            };
-
-            refreshButton = new Button
-            {
-                Text = "⟳",
-                Width = 44,
-                Height = 38,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(50, 50, 50),
-                ForeColor = Color.White,
-                Margin = new Padding(0, 5, 5, 5),
-                Font = new Font("Segoe UI", 16, FontStyle.Bold),
-                Padding = new Padding(0),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
+            programmerComboBox.SelectedIndexChanged += (s, e) => { selectedProgrammer = programmerComboBox.SelectedItem?.ToString() ?? "SerialUPDI (115200 baud)"; };
+            refreshButton = new Button { Text = "⟳", Width = 44, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(50, 50, 50), ForeColor = Color.White, Margin = new Padding(0, 5, 5, 5), Font = new Font("Segoe UI", 16, FontStyle.Bold), Padding = new Padding(0), TextAlign = ContentAlignment.MiddleCenter };
             refreshButton.FlatAppearance.BorderColor = Color.HotPink;
             refreshButton.FlatAppearance.BorderSize = 1;
-            refreshButton.Click += async (s, e) => { 
-                LoadComPorts(); 
-                await PerformInitialBoardDetection();
-            };
-
-            uploadButton = new Button
-            {
-                Text = "Upload",
-                Width = 120,
-                Height = 38,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(50, 50, 50),
-                ForeColor = Color.White,
-                Margin = new Padding(10, 5, 5, 5),
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Padding = new Padding(0),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
+            refreshButton.Click += async (s, e) => { LoadComPorts(); await PerformInitialBoardDetection(); };
+            uploadButton = new Button { Text = "Upload", Width = 120, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(50, 50, 50), ForeColor = Color.White, Margin = new Padding(10, 5, 5, 5), Font = new Font("Segoe UI", 12, FontStyle.Bold), Padding = new Padding(0), TextAlign = ContentAlignment.MiddleCenter };
             uploadButton.FlatAppearance.BorderColor = Color.HotPink;
             uploadButton.FlatAppearance.BorderSize = 1;
             uploadButton.Click += UploadButton_Click;
-
             deviceComboBox.Items.Clear();
             deviceComboBox.Items.Add("Arduino Uno");
             deviceComboBox.Items.Add("ATmega4809");
@@ -393,13 +309,10 @@ namespace UniFlash.IDE
             deviceComboBox.Items.Add("ESP32 WROOM");
             deviceComboBox.SelectedIndex = 0;
             deviceComboBox.SelectedIndexChanged += DeviceComboBox_SelectedIndexChanged;
-
             toolbarPanel.Controls.AddRange(new Control[] { portLabel, portComboBox, deviceLabel, deviceComboBox, baudLabel, baudComboBox, programmerLabel, programmerComboBox, refreshButton, uploadButton });
-            mainLayout.Controls.Add(toolbarPanel, 0, 0);
-        }
+            editorPanel.Controls.Add(toolbarPanel);
 
-        private void InitializeTabControl()
-        {
+            // TabControl (code editor)
             tabControl = new TabControl
             {
                 Dock = DockStyle.Fill,
@@ -410,7 +323,8 @@ namespace UniFlash.IDE
             };
             tabControl.DrawItem += TabControl_DrawItem;
             tabControl.MouseDown += TabControl_MouseDown;
-            mainLayout.Controls.Add(tabControl, 0, 1);
+            editorPanel.Controls.Add(tabControl);
+            tabControl.BringToFront();
             AddNewTab("sketch1.ino");
         }
 
@@ -443,7 +357,7 @@ namespace UniFlash.IDE
         {
             bottomTabControl = new TabControl
             {
-                Dock = DockStyle.Bottom,
+                Dock = DockStyle.Fill,
                 Height = 180,
                 Font = new Font("Segoe UI", 10),
                 BackColor = Color.FromArgb(30, 30, 30),
@@ -494,7 +408,7 @@ namespace UniFlash.IDE
 
             bottomTabControl.TabPages.Add(outputTab);
             bottomTabControl.TabPages.Add(serialTab);
-            this.Controls.Add(bottomTabControl);
+            mainSplitContainer.Panel2.Controls.Add(bottomTabControl);
             bottomTabControl.BringToFront();
         }
 

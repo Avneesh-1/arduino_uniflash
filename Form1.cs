@@ -37,13 +37,6 @@ public partial class Form1 : Form
     private List<Form>? maximizedForms;
     private GraphManager graphManager;
     private List<string> pausedLines = new List<string>();
-    private List<double> pausedVoltages = new List<double>();
-    private List<double> pausedTdsValues = new List<double>();
-    private List<double> pausedTempValues = new List<double>();
-    private List<double> pausedTimelapses = new List<double>();
-    private DateTime? pauseStartTime = null;
-    private double lastTimeValue = 0;
-    private bool isFirstPause = true;
     public System.Windows.Forms.Label pauseLoggingLabel;
     public Button pauseLoggingButton;
     public System.Windows.Forms.Label logSeparatorLabel;
@@ -59,13 +52,6 @@ public partial class Form1 : Form
         public override string ToString() => Display;
     }
 
-    // Data storage for plotting
-    private List<double> voltages = new List<double>();
-    private List<double> tdsValues = new List<double>();
-    private List<double> tempValues = new List<double>();
-    private List<double> timelapses = new List<double>();
-    private DateTime? startTime = null;
-
     // Add maximize/restore toggle logic
     private Form maximizedGraphForm = null;
 
@@ -79,12 +65,31 @@ public partial class Form1 : Form
         LoadComPorts();
         // Auto-detect COM ports whenever the form gains focus
         this.Activated += (s, e) => LoadComPorts();
-        // Instantiate GraphManager after controls are created
-        graphManager = new GraphManager(formsPlot1, formsPlot2, paramComboBox1, paramComboBox2, splitScreenCheckBox);
         // Bind UI controls to ViewModel properties (example for ComboBox, Button, etc.)
         // (You may need to add more bindings as needed)
         comPortComboBox.SelectedIndexChanged += (s, e) => viewModel.SelectedComPort = comPortComboBox.SelectedItem?.ToString();
         baudComboBox.SelectedIndexChanged += (s, e) => viewModel.SelectedBaudRate = baudComboBox.SelectedItem is BaudRate br ? br.Value : 9600;
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        string[] ports = System.IO.Ports.SerialPort.GetPortNames();
+        if (ports.Length == 0)
+        {
+            MessageBox.Show(
+                "No serial ports/devices detected.\n\nPlease connect a device to use UniFlash features.",
+                "Warning: No Devices Connected",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning
+            );
+        }
+        
+        // Ensure UI is properly initialized
+        if (graphManager != null)
+        {
+            graphManager.ForceUIUpdate();
+        }
     }
 
     private void InitializeCustomComponents()
@@ -253,13 +258,10 @@ public partial class Form1 : Form
 
         paramLabel1 = new Label { Text = "Graph 1:", ForeColor = Color.FromArgb(180, 180, 180), Font = new Font("Segoe UI", 12), AutoSize = true, Margin = new Padding(0, 8, 12, 0) };
         paramComboBox1 = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 12), ForeColor = Color.FromArgb(255, 192, 203), BackColor = Color.FromArgb(30, 30, 30), Width = 120, Margin = new Padding(0, 0, 25, 0) };
-        paramComboBox1.Items.AddRange(new string[] { "Voltage", "TDS", "Temperature" });
-        paramComboBox1.SelectedIndex = 0;
         splitScreenCheckBox = new CheckBox { Text = "Split Screen", Font = new Font("Segoe UI", 12), ForeColor = Color.FromArgb(180, 180, 180), BackColor = Color.Transparent, AutoSize = true, Margin = new Padding(0, 8, 25, 0) };
         paramLabel2 = new Label { Text = "Graph 2:", ForeColor = Color.FromArgb(180, 180, 180), Font = new Font("Segoe UI", 12), AutoSize = true, Margin = new Padding(0, 8, 12, 0), Visible = false };
         paramComboBox2 = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 12), ForeColor = Color.FromArgb(255, 192, 203), BackColor = Color.FromArgb(30, 30, 30), Width = 120, Margin = new Padding(0, 0, 25, 0), Visible = false };
-        paramComboBox2.Items.AddRange(new string[] { "TDS", "Temperature" });
-        paramComboBox2.SelectedIndex = 0;
+        
         graphControlPanel.Controls.AddRange(new Control[] { paramLabel1, paramComboBox1, splitScreenCheckBox, paramLabel2, paramComboBox2 });
         mainLayout.Controls.Add(graphControlPanel);
 
@@ -315,6 +317,9 @@ public partial class Form1 : Form
         };
         maximizeButton2.Click += (s, e) => ToggleMaximizePlot(2);
         chartPanel.Controls.Add(maximizeButton2);
+
+        // Initialize GraphManager AFTER FormsPlot controls are created
+        graphManager = new GraphManager(formsPlot1, formsPlot2, paramComboBox1, paramComboBox2, splitScreenCheckBox);
 
         // SerialPort setup
         serialPort = new SerialPort();
@@ -384,20 +389,14 @@ public partial class Form1 : Form
                 viewModel.IsPaused = true;
                 pauseLoggingButton.Text = "▶"; // Play icon
                 pauseLoggingLabel.Text = "Continue  Logging";
-                pauseStartTime = DateTime.Now;
-                
-                // Store the last time value before pause
-                if (timelapses.Count > 0)
-                {
-                    lastTimeValue = timelapses[timelapses.Count - 1];
-                }
-                isFirstPause = true;
+                graphManager.SetPaused(true);
             }
             else
             {
                 viewModel.IsPaused = false;
                 pauseLoggingButton.Text = "⏸"; // Pause icon
                 pauseLoggingLabel.Text = "Pause  Logging";
+                graphManager.SetPaused(false);
                 
                 // On resume, append all buffered lines to terminal
                 if (pausedLines.Count > 0)
@@ -406,25 +405,9 @@ public partial class Form1 : Form
                         AppendData(line + "\r\n");
                     pausedLines.Clear();
                 }
-
-                // Restore paused graph data
-                if (pausedVoltages.Count > 0)
-                {
-                    voltages.AddRange(pausedVoltages);
-                    tdsValues.AddRange(pausedTdsValues);
-                    tempValues.AddRange(pausedTempValues);
-                    timelapses.AddRange(pausedTimelapses);
-                    
-                    pausedVoltages.Clear();
-                    pausedTdsValues.Clear();
-                    pausedTempValues.Clear();
-                    pausedTimelapses.Clear();
-                }
-
-                pauseStartTime = null;
                 
                 // Update the graph with all collected data
-                this.BeginInvoke(new Action(graphManager.UpdateScottPlot));
+                this.BeginInvoke(new Action(() => graphManager.ForceUIUpdate()));
             }
         };
 
@@ -536,6 +519,7 @@ public partial class Form1 : Form
         try
         {
             string data = serialPort.ReadLine();
+            System.Diagnostics.Debug.WriteLine($"[SERIAL RAW] {data}"); // Debug: log raw serial data
             ParseAndPlotSensorData(data); // Always collect data
             if (viewModel.IsPaused)
             {
@@ -555,78 +539,23 @@ public partial class Form1 : Form
 
     private void ParseAndPlotSensorData(string data)
     {
-        // Use GraphManager for parsing and plotting
-        if (viewModel.IsPaused)
-        {
-            // Store the data in paused collections
-            string voltage = null, tds = null, temp = null;
-            try
-            {
-                var parts = data.Split(' ');
-                for (int i = 0; i < parts.Length; i++)
-                {
-                    if (parts[i].Contains("$Voltage$"))
-                    {
-                        if (i + 2 < parts.Length)
-                            voltage = parts[i + 2].Replace("V", "").Trim();
-                    }
-                    else if (parts[i].Contains("$TDS$"))
-                    {
-                        if (i + 2 < parts.Length)
-                            tds = parts[i + 2].Trim();
-                    }
-                    else if (parts[i].Contains("$Temp$"))
-                    {
-                        if (i + 2 < parts.Length)
-                            temp = parts[i + 2].Trim();
-                    }
-                }
-            }
-            catch { }
-
-            double v = double.NaN, tdsVal = double.NaN, tempVal = double.NaN;
-            double.TryParse(voltage, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out v);
-            double.TryParse(tds, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out tdsVal);
-            double.TryParse(temp, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out tempVal);
-
-            if (pauseStartTime.HasValue)
-            {
-                double timeSincePause = (DateTime.Now - pauseStartTime.Value).TotalSeconds;
-                double currentTime;
+        // Always use GraphManager for parsing and plotting
+        graphManager.ParseAndPlotSensorData(data, () => {
+            this.BeginInvoke(new Action(() => {
+                // Force UI update to ensure combo boxes are populated and plots are updated
+                graphManager.ForceUIUpdate();
                 
-                if (isFirstPause)
+                // Update maximized plot if it exists
+                if (maximizedGraphForm != null && !maximizedGraphForm.IsDisposed)
                 {
-                    currentTime = lastTimeValue;
-                    isFirstPause = false;
-                }
-                else
-                {
-                    currentTime = lastTimeValue + timeSincePause;
-                }
-
-                pausedTimelapses.Add(currentTime);
-                pausedVoltages.Add(v);
-                pausedTdsValues.Add(tdsVal);
-                pausedTempValues.Add(tempVal);
-            }
-        }
-        else
-        {
-            graphManager.ParseAndPlotSensorData(data, () => {
-                this.BeginInvoke(new Action(() => {
-                    graphManager.UpdateScottPlot();
-                    // Update maximized plot if it exists
-                    if (maximizedGraphForm != null && !maximizedGraphForm.IsDisposed)
+                    var maxPlot = maximizedGraphForm.Controls.OfType<ScottPlot.WinForms.FormsPlot>().FirstOrDefault();
+                    if (maxPlot != null)
                     {
-                        var maxPlot = maximizedGraphForm.Controls.OfType<ScottPlot.WinForms.FormsPlot>().FirstOrDefault();
-                        if (maxPlot != null)
-                        {
-                            graphManager.UpdateMaximizedPlot(maxPlot, maximizedGraphForm.Tag is int plotNum ? plotNum : 1);
-                        }
+                        graphManager.UpdateMaximizedPlot(maxPlot, maximizedGraphForm.Tag is int plotNum ? plotNum : 1);
                     }
-                }));
-            });
-        }
+                }
+            }));
+        });
     }
 
     private void AppendData(string text)

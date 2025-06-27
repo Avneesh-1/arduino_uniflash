@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("UniFlash")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ed93b07715c93b87076bad64f8eac28aaae35dc8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f66ec06dbc355e3fe9147030cc3eabf391619295")]
 [assembly: System.Reflection.AssemblyProductAttribute("UniFlash")]
 [assembly: System.Reflection.AssemblyTitleAttribute("UniFlash")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

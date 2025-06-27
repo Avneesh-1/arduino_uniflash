@@ -236,7 +236,7 @@ namespace UniFlash.IDE
             }
         }
 
-        public async Task<bool> UploadCode(string code, string portName, IProgress<string> progress = null, string programmer = null)
+        public async Task<bool> UploadCode(string code, string portName, IProgress<string> progress = null, string programmer = null, bool verboseCompile = false, bool verboseUpload = false)
         {
             try
             {
@@ -335,7 +335,9 @@ namespace UniFlash.IDE
 
                 // Compile the sketch
                 progress?.Report("[Compiling sketch...]");
-                var compileResult = await RunCliCommand($"compile --fqbn {CurrentBoardType} \"{sketchDirectory}\"");
+                string compileCmd = $"compile --fqbn {CurrentBoardType} \"{sketchDirectory}\"";
+                if (verboseCompile) compileCmd += " --verbose";
+                var compileResult = await RunCliCommand(compileCmd);
                 if (!compileResult.success)
                 {
                     progress?.Report($"[Compilation failed: {compileResult.output}]");
@@ -348,6 +350,7 @@ namespace UniFlash.IDE
                 // Then upload
                 progress?.Report("[Uploading... Please wait]");
                 string uploadCmd = $"upload -p {portName} --fqbn {CurrentBoardType} \"{sketchDirectory}\"";
+                if (verboseUpload) uploadCmd += " --verbose";
                 if (CurrentBoardType.StartsWith("MegaCoreX:megaavr"))
                 {
                     if (!string.IsNullOrEmpty(programmer))
